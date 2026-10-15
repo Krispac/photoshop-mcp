@@ -14,14 +14,21 @@ const IPC_BROKER = `/Library/Application Support/Adobe/Adobe Desktop Common/IPCB
 const PS_2025_EXEC =
   '/Applications/Adobe Photoshop 2025/Adobe Photoshop 2025.app/Contents/MacOS/Adobe Photoshop 2025';
 
-/** osascript answers `osascript` (or throws); pgrep -f matches its pattern against `processes`. */
-function fakeRunner(opts: { osascript?: string; processes: string[] }) {
+/**
+ * osascript answers `osascript` (or throws). pgrep -f matches its pattern against
+ * `processes` like pgrep: exit 1 on no match, exit 3 when `pgrepUnavailable`
+ * (it cannot read the process list, as inside a sandbox).
+ */
+function fakeRunner(opts: { osascript?: string; processes: string[]; pgrepUnavailable?: boolean }) {
   const calls: Array<{ file: string; args: string[] }> = [];
   const run: CommandRunner = async (file, args) => {
     calls.push({ file, args });
     if (file === 'osascript') {
       if (opts.osascript === undefined) throw new Error('osascript unavailable');
       return { stdout: opts.osascript };
+    }
+    if (opts.pgrepUnavailable) {
+      throw Object.assign(new Error('pgrep: Cannot get process list'), { code: 3 });
     }
     const re = new RegExp(args[1]);
     const hits = opts.processes.filter((line) => re.test(line));
@@ -87,38 +94,42 @@ describe('executablePgrepPattern', () => {
 describe('isMacAppRunning', () => {
   const target = { appName: 'Adobe Photoshop 2026', appPath: PS_PATH };
 
-  it('asks AppleScript about the exact bundle path', async () => {
-    const { run, calls } = fakeRunner({ osascript: 'true\n', processes: [] });
+  it('finds the real executable with an anchored pgrep and skips AppleScript', async () => {
+    const { run, calls } = fakeRunner({ processes: [IPC_BROKER, PS_EXEC] });
     expect(await isMacAppRunning(target, run)).toBe(true);
-    expect(calls[0]).toEqual({
+    expect(calls.map((c) => c.file)).toEqual(['pgrep']);
+  });
+
+  it('ignores AdobeIPCBroker, whose arguments carry the Photoshop path (#72)', async () => {
+    const { run } = fakeRunner({ osascript: 'true\n', processes: [IPC_BROKER] });
+    expect(await isMacAppRunning(target, run)).toBe(false);
+  });
+
+  it('reports 2026 as not running while only 2025 runs, even if AppleScript would say true', async () => {
+    // 2025, 2026 and Beta share com.adobe.Photoshop, so AppleScript may answer
+    // for whichever copy runs. pgrep's "no match" is trusted on its own.
+    const { run, calls } = fakeRunner({ osascript: 'true\n', processes: [PS_2025_EXEC] });
+    expect(await isMacAppRunning(target, run)).toBe(false);
+    expect(calls.map((c) => c.file)).toEqual(['pgrep']);
+  });
+
+  it('asks AppleScript about the exact bundle when pgrep cannot read processes (sandbox)', async () => {
+    const { run, calls } = fakeRunner({ osascript: 'true\n', processes: [], pgrepUnavailable: true });
+    expect(await isMacAppRunning(target, run)).toBe(true);
+    expect(calls[1]).toEqual({
       file: 'osascript',
       args: ['-e', `application "${PS_PATH}" is running`],
     });
   });
 
-  it('trusts AppleScript "false" even when AdobeIPCBroker carries the Photoshop path (#72)', async () => {
+  it('asks AppleScript by name when no bundle path is known', async () => {
     const { run, calls } = fakeRunner({ osascript: 'false\n', processes: [IPC_BROKER] });
-    expect(await isMacAppRunning(target, run)).toBe(false);
-    expect(calls).toHaveLength(1);
-  });
-
-  it('falls back to an anchored pgrep that ignores AdobeIPCBroker', async () => {
-    const { run } = fakeRunner({ processes: [IPC_BROKER] });
-    expect(await isMacAppRunning(target, run)).toBe(false);
-  });
-
-  it('falls back to pgrep and finds the real executable', async () => {
-    const { run } = fakeRunner({ processes: [IPC_BROKER, PS_EXEC] });
-    expect(await isMacAppRunning(target, run)).toBe(true);
-  });
-
-  it('reports 2026 as not running while only 2025 runs side by side', async () => {
-    const { run } = fakeRunner({ processes: [PS_2025_EXEC] });
-    expect(await isMacAppRunning(target, run)).toBe(false);
+    expect(await isMacAppRunning({ appName: 'Adobe Photoshop 2026' }, run)).toBe(false);
+    expect(calls.map((c) => c.file)).toEqual(['osascript']);
   });
 
   it('returns false when both checks fail', async () => {
-    const { run } = fakeRunner({ processes: [] });
+    const { run } = fakeRunner({ processes: [], pgrepUnavailable: true });
     expect(await isMacAppRunning(target, run)).toBe(false);
   });
 });

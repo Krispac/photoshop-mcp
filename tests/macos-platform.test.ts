@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MacOSExecutor,
@@ -250,5 +253,40 @@ describe('detector fallback paths', () => {
 
   it('still covers the oldest supported year', () => {
     expect(pathsFor()).toContain('/Applications/Adobe Photoshop CC 2012/Adobe Photoshop CC 2012.app');
+  });
+});
+
+describe('detector with PHOTOSHOP_PATH inside the bundle (#72)', () => {
+  let root: string;
+  let savedPath: string | undefined;
+
+  beforeEach(() => {
+    savedPath = process.env.PHOTOSHOP_PATH;
+    root = mkdtempSync(join(tmpdir(), 'ph-mcp-bundle-'));
+    const bundle = join(root, 'Adobe Photoshop 2026.app');
+    mkdirSync(join(bundle, 'Contents', 'MacOS'), { recursive: true });
+    writeFileSync(
+      join(bundle, 'Contents', 'Info.plist'),
+      '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>' +
+        '<key>CFBundleShortVersionString</key><string>27.10.0</string></dict></plist>\n'
+    );
+    writeFileSync(join(bundle, 'Contents', 'MacOS', 'Adobe Photoshop 2026'), '');
+  });
+
+  afterEach(() => {
+    if (savedPath === undefined) delete process.env.PHOTOSHOP_PATH;
+    else process.env.PHOTOSHOP_PATH = savedPath;
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['the executable', 'Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026'],
+    ['the bundle with a trailing slash', 'Adobe Photoshop 2026.app/'],
+  ])('resolves %s to the bundle, its version and its name', async (_label, relative) => {
+    process.env.PHOTOSHOP_PATH = join(root, relative);
+    const info = await new MacOSDetector().detect();
+    expect(info.path).toBe(join(root, 'Adobe Photoshop 2026.app'));
+    expect(info.version).toBe('27.10.0');
+    expect(info.appName).toBe('Adobe Photoshop 2026');
   });
 });

@@ -58,30 +58,34 @@ export function executablePgrepPattern(appPath: string): string {
   return `^${escapeForPgrep(appPath)}/Contents/MacOS/`;
 }
 
+/** pgrep exit code for "no process matched" (3 means it could not read the process list). */
+const PGREP_NO_MATCH = 1;
+
 /**
- * Whether this exact install is running. AppleScript answers `running` itself
- * (it never launches the app) and still works where pgrep and ps are denied,
- * e.g. inside an agent sandbox. pgrep is the fallback when osascript fails.
+ * Whether this exact install is running. An anchored pgrep comes first: it
+ * matches only this bundle's executable, while AppleScript may answer for any
+ * running copy because 2025, 2026 and Beta share com.adobe.Photoshop. When
+ * pgrep cannot read the process list (exit 3 inside an agent sandbox),
+ * AppleScript answers instead: `running` never launches the app.
  */
 export async function isMacAppRunning(
   target: MacAppTarget,
   run: CommandRunner = defaultRunner
 ): Promise<boolean> {
+  if (target.appPath) {
+    try {
+      const { stdout } = await run('pgrep', ['-f', executablePgrepPattern(target.appPath)]);
+      return stdout.trim().length > 0;
+    } catch (error) {
+      if ((error as { code?: unknown }).code === PGREP_NO_MATCH) return false;
+      // pgrep missing or denied; ask AppleScript.
+    }
+  }
+
   try {
     const { stdout } = await run('osascript', ['-e', `${appleScriptAppRef(target)} is running`]);
     return stdout.trim() === 'true';
   } catch {
-    // osascript unavailable or the name did not resolve; try pgrep.
-  }
-
-  const pattern = target.appPath
-    ? executablePgrepPattern(target.appPath)
-    : escapeForPgrep(target.appName);
-  try {
-    const { stdout } = await run('pgrep', ['-f', pattern]);
-    return stdout.trim().length > 0;
-  } catch {
-    // pgrep exits 1 when nothing matches, 3 when it cannot read the process list.
     return false;
   }
 }

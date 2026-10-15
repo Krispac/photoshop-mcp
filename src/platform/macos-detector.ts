@@ -95,8 +95,9 @@ export class MacOSDetector {
 
   private async checkPath(path: string): Promise<PhotoshopInfo | null> {
     try {
-      // Clean up path
-      const cleanPath = path.trim();
+      // PHOTOSHOP_PATH may point inside the bundle or end with a slash; the
+      // version, name, AppleScript target and `open -a` all need the .app (#72).
+      const cleanPath = bundlePathOf(path) ?? path.trim();
 
       // Check if path exists
       await access(cleanPath, constants.F_OK);
