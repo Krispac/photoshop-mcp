@@ -78,6 +78,18 @@ describe('PhotoshopConnection on macOS', () => {
     expect(launch).not.toHaveBeenCalled();
   });
 
+  it('applies the detected bundle path before the very first script runs (#72)', async () => {
+    const seenPaths: Array<string | undefined> = [];
+    vi.spyOn(MacOSExecutor.prototype, 'execute').mockImplementation(async function (
+      this: MacOSExecutor
+    ) {
+      seenPaths.push((this as unknown as { appPath?: string }).appPath);
+      return 'ok';
+    });
+    await new PhotoshopConnection().executeScript('app.version');
+    expect(seenPaths).toEqual(['/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app']);
+  });
+
   it('applies the detected app name in ensurePhotoshopRunning', async () => {
     const connection = new PhotoshopConnection();
     await connection.ensurePhotoshopRunning();

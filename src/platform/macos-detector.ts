@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import { access, constants, readFile } from 'fs/promises';
 import { Logger } from '../utils/logger.js';
 import { PhotoshopInfo } from './connection.js';
+import { bundlePathOf, isMacAppRunning } from './macos-app.js';
 
 const execAsync = promisify(exec);
 
@@ -160,17 +161,8 @@ export class MacOSDetector {
   }
 
   private async checkIfRunning(appPath: string): Promise<boolean> {
-    try {
-      // Get the app name from path
-      const appName = appPath.split('/').pop()?.replace('.app', '') || 'Adobe Photoshop';
-
-      // Use pgrep to check if process is running
-      const { stdout } = await execAsync(`pgrep -f "${appName}"`);
-      return stdout.trim().length > 0;
-    } catch {
-      // pgrep returns non-zero exit code if no process found
-      return false;
-    }
+    const appName = appPath.split('/').pop()?.replace('.app', '') || 'Adobe Photoshop';
+    return isMacAppRunning({ appName, appPath: bundlePathOf(appPath) });
   }
 
   async getAppBundleId(appPath: string): Promise<string | null> {

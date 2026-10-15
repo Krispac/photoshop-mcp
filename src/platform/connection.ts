@@ -139,7 +139,7 @@ export class PhotoshopConnection {
       }
 
       const executor = this.getExecutor();
-      this.applyMacOSAppName();
+      this.applyMacOSTarget();
 
       const isRunning = await executor.isPhotoshopRunning();
       if (!isRunning) {
@@ -169,7 +169,7 @@ export class PhotoshopConnection {
     }
 
     const executor = this.getExecutor();
-    this.applyMacOSAppName();
+    this.applyMacOSTarget();
     const isRunning = await executor.isPhotoshopRunning();
     if (!isRunning) {
       this.logger.info('Launching Photoshop...');
@@ -178,16 +178,15 @@ export class PhotoshopConnection {
   }
 
   /**
-   * Point the macOS executor at the detected app bundle name. Must run after
+   * Point the macOS executor at the detected install. Must run after
    * getExecutor(): the executor is created lazily, and before this ordering fix
    * the first script of every session ran against the hard-coded default
-   * ("Adobe Photoshop 2025"), so on any other version pgrep reported Photoshop
-   * as not running, launchPhotoshop() stole focus for 5s, and osascript failed
-   * to compile `do javascript` (-2741) because the app name did not resolve.
+   * ("Adobe Photoshop 2025"). The bundle path is the AppleScript target; the
+   * name stays for logs and as a fallback when the path is not a bundle (#72).
    */
-  private applyMacOSAppName(): void {
-    if (this.macosExecutor && this.photoshopInfo?.appName) {
-      this.macosExecutor.setAppName(this.photoshopInfo.appName);
-    }
+  private applyMacOSTarget(): void {
+    if (!this.macosExecutor || !this.photoshopInfo) return;
+    if (this.photoshopInfo.appName) this.macosExecutor.setAppName(this.photoshopInfo.appName);
+    this.macosExecutor.setAppPath(this.photoshopInfo.path);
   }
 }

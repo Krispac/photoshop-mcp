@@ -7,6 +7,7 @@ import { Logger } from '../utils/logger.js';
 import { prefixExtendScriptBom } from '../utils/extendscript-file.js';
 import { parseExtendScriptPayload } from '../utils/extendscript-result.js';
 import { ScriptExecutor } from './script-executor.js';
+import { appleScriptAppRef, bundlePathOf, isMacAppRunning, type MacAppTarget } from './macos-app.js';
 import {
   DEFAULT_SCRIPT_TIMEOUT_MS,
   QUEUE_WAIT_ALLOWANCE_MS,
@@ -16,10 +17,7 @@ import {
 
 const execAsync = promisify(exec);
 
-/** Escape a string for use as a pgrep -f pattern (extended regex). */
-export function escapeForPgrep(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+export { escapeForPgrep } from './macos-app.js';
 
 function envTruthy(name: string): boolean {
   const value = process.env[name]?.trim().toLowerCase();
@@ -70,6 +68,18 @@ export class MacOSExecutor implements ScriptExecutor {
   setAppName(appName: string): void {
     this.appName = appName;
     this.logger.debug(`App name set to: ${appName}`);
+  }
+
+  private appPath?: string;
+
+  /** Target the detected .app bundle; a path outside a bundle keeps name targeting. */
+  setAppPath(path: string): void {
+    this.appPath = bundlePathOf(path);
+    this.logger.debug(`App path set to: ${this.appPath ?? '(none, targeting by name)'}`);
+  }
+
+  private target(): MacAppTarget {
+    return { appName: this.appName, ...(this.appPath ? { appPath: this.appPath } : {}) };
   }
 
   async execute(script: string, timeout?: number): Promise<unknown> {
@@ -209,7 +219,7 @@ export class MacOSExecutor implements ScriptExecutor {
     // silently defeating per-tool timeouts above 120s (batch tools use 600s).
     const timeoutSeconds = appleScriptTimeoutSeconds(timeoutMs);
 
-    return `tell application "${this.appName}"
+    return `tell ${appleScriptAppRef(this.target())}
 ${activateLine}\tset jsxFile to POSIX file "${posixPath}"
 \twith timeout of ${timeoutSeconds} seconds
 \t\tdo javascript "$.evalFile(decodeURI('${encodeURI(posixPath)}'))"
@@ -228,17 +238,10 @@ end tell`;
   }
 
   async isPhotoshopRunning(): Promise<boolean> {
-    try {
-      // Match the specific app we drive, not any Photoshop — with 2025/2026/
-      // Beta installed side by side, a generic match reports "running" while
-      // the target version is not.
-      const pattern = escapeForPgrep(this.appName);
-      const { stdout } = await execAsync(`pgrep -f "${pattern}"`);
-      return stdout.trim().length > 0;
-    } catch {
-      // pgrep returns non-zero exit code if no process found
-      return false;
-    }
+    // Match the exact install we drive. With 2025/2026/Beta side by side a
+    // generic match reports "running" while the target version is not, and an
+    // unanchored pgrep also matched AdobeIPCBroker's arguments (#72).
+    return isMacAppRunning(this.target());
   }
 
   async launchPhotoshop(photoshopPath: string): Promise<void> {
@@ -275,7 +278,7 @@ end tell`;
     try {
       await writeFile(tempScriptPath, prefixExtendScriptBom(script), 'utf8');
 
-      const appleScript = `tell application "${this.appName}"
+      const appleScript = `tell ${appleScriptAppRef(this.target())}
 \tdo shell script "cat '${tempScriptPath}'"
 end tell`;
 

@@ -52,6 +52,26 @@ describe('AppleScript wrapper focus behavior', () => {
     executor.setAppName('Adobe Photoshop 2026');
     expect(wrapperFor(executor)).toContain('activate');
   });
+
+  it('targets the detected bundle path when one is set (#72)', () => {
+    const executor = new MacOSExecutor();
+    executor.setAppName('Adobe Photoshop 2026');
+    executor.setAppPath('/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app');
+    expect(wrapperFor(executor)).toContain(
+      'tell application "/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app"'
+    );
+  });
+
+  it('targets the bundle when PHOTOSHOP_PATH points at the executable inside it', () => {
+    const executor = new MacOSExecutor();
+    executor.setAppName('Adobe Photoshop 2026');
+    executor.setAppPath(
+      '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app/Contents/MacOS/Adobe Photoshop 2026'
+    );
+    expect(wrapperFor(executor)).toContain(
+      'tell application "/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app"'
+    );
+  });
 });
 
 describe('AppleScript wrapper timeout block', () => {
