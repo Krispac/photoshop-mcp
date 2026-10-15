@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.36] - 2026-10-15
+
+[v1.7.35...v1.7.36](https://github.com/alisaitteke/photoshop-mcp/compare/v1.7.35...v1.7.36)
+
+### Fixed
+
+- `photoshop_get_capabilities` reports `uxp_bridge_reachable` only while the UXP bridge panel is actually polling. Neural filters fail fast when the panel is closed instead of waiting for the bridge timeout (#57, #59 by @SAIL0R34).
+- A neural filter that timed out before the bridge panel picked it up no longer runs later on whatever document is open.
+- The ExtendScript/UXP choice logs what it detected instead of a fixed "UXP not available" line, and the `extendscript_timeout` hint no longer points at the UXP bridge, which cannot run tool scripts (#59).
+
+### Added
+
+- `PHOTOSHOP_MCP_API=uxp|extendscript` forces the scripting path. Default `auto`; surrounding whitespace is ignored (#59).
+
 ## [1.7.35] - 2026-10-15
 
 [v1.7.34...v1.7.35](https://github.com/alisaitteke/photoshop-mcp/compare/v1.7.34...v1.7.35)
