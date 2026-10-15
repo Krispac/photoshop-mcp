@@ -2,7 +2,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PING_CONNECTED_TEXT, PING_FAILED_TEXT } from '../src/feedback/nudge.js';
+import {
+  PING_CONNECTED_TEXT,
+  PING_FAILED_TEXT,
+  PING_NOT_FOUND_REASON,
+  PING_NOT_RUNNING_REASON,
+} from '../src/feedback/nudge.js';
 
 vi.mock('os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('os')>();
@@ -69,9 +74,25 @@ describe('probePhotoshopEngine', () => {
     const launch = vi.spyOn(MacOSExecutor.prototype, 'launchPhotoshop').mockResolvedValue(undefined);
     const execute = vi.spyOn(MacOSExecutor.prototype, 'execute').mockResolvedValue(1);
     const result = await probePhotoshopEngine(new PhotoshopConnection());
-    expect(textOf(result)).toBe(PING_FAILED_TEXT);
+    expect(result.content[0]).toMatchObject({ type: 'text', text: PING_FAILED_TEXT });
+    expect(textOf(result)).toContain(PING_NOT_RUNNING_REASON);
     expect(launch).not.toHaveBeenCalled();
     expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('says Photoshop was not found when detection fails', async () => {
+    vi.spyOn(PhotoshopConnection.prototype, 'ping').mockResolvedValue(false);
+    const result = await probePhotoshopEngine(new PhotoshopConnection());
+    expect(result.content[0]).toMatchObject({ type: 'text', text: PING_FAILED_TEXT });
+    expect(textOf(result)).toContain(PING_NOT_FOUND_REASON);
+  });
+
+  it('lets AppleEvent failures reach the error envelope instead of a bare failure (#72)', async () => {
+    vi.spyOn(MacOSExecutor.prototype, 'isPhotoshopRunning').mockResolvedValue(true);
+    vi.spyOn(MacOSExecutor.prototype, 'execute').mockRejectedValue(
+      new Error('execution error: Adobe Photoshop 2026 got an error: Application isn’t running. (-600)')
+    );
+    await expect(probePhotoshopEngine(new PhotoshopConnection())).rejects.toThrow(/\(-600\)/);
   });
 
   it('does not report success when the probe times out on a busy engine', async () => {

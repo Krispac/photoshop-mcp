@@ -28,6 +28,9 @@ export type PhotoshopErrorCode =
   | 'unsupported_color_mode'
   | 'no_base_layer_below'
   | 'not_clipping'
+  | 'photoshop_unreachable'
+  | 'automation_permission_denied'
+  | 'photoshop_app_not_resolved'
   | 'unknown';
 
 export interface PhotoshopErrorEnvelope {
@@ -109,6 +112,37 @@ export function diagnoseScratchDiskTimeout(freeBytes: number | null): PhotoshopE
   );
 }
 
+/**
+ * macOS osascript failures. Matched on the numeric AppleEvent / Launch Services
+ * code in parentheses, which stays the same when macOS localizes the message.
+ * The raw osascript text is kept in the message so the cause is not lost (#72).
+ */
+const APPLE_EVENT_ERRORS: Array<{
+  pattern: RegExp;
+  code: PhotoshopErrorCode;
+  hint: string;
+  suggested_next_tool: string;
+}> = [
+  {
+    pattern: /\(-1743\)/,
+    code: 'automation_permission_denied',
+    hint: 'macOS blocked Apple events to Photoshop. Open System Settings > Privacy & Security > Automation, allow the app that runs this MCP server (for example Claude, Cursor or Terminal) to control Adobe Photoshop, then call photoshop_ping.',
+    suggested_next_tool: 'photoshop_ping',
+  },
+  {
+    pattern: /\((?:-600|-609|-10810|-10822|-10827)\)/,
+    code: 'photoshop_unreachable',
+    hint: 'Apple events could not reach Photoshop. Make sure Photoshop is open in the same macOS user session as this MCP server. If the server runs inside a sandbox (an agent sandbox, a Seatbelt profile or a container), allow it to send Apple events or run it outside the sandbox.',
+    suggested_next_tool: 'photoshop_ping',
+  },
+  {
+    pattern: /\((?:-1728|-2741|-10814)\)/,
+    code: 'photoshop_app_not_resolved',
+    hint: 'AppleScript could not resolve the Photoshop application. Set PHOTOSHOP_PATH to the full .app path, for example "/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app", then restart the MCP server.',
+    suggested_next_tool: 'photoshop_get_capabilities',
+  },
+];
+
 export function classifyError(message: string): PhotoshopErrorEnvelope {
   if (SCRATCH_DISK_FULL_PATTERN.test(message)) {
     return scratchDiskFullEnvelope(message);
@@ -120,6 +154,12 @@ export function classifyError(message: string): PhotoshopErrorEnvelope {
       message: `${message} Photoshop only lists fonts already installed for this user. Install the .ttf, .otf, or .ttc with photoshop_install_font (it reloads the font list in the open app), then retry with a postScriptName from that result.`,
       suggested_next_tool: 'photoshop_list_fonts',
     };
+  }
+
+  for (const { pattern, code, hint, suggested_next_tool } of APPLE_EVENT_ERRORS) {
+    if (pattern.test(message)) {
+      return { ok: false, code, message: `${message.trim()} ${hint}`, suggested_next_tool };
+    }
   }
 
   for (const { pattern, code, suggested_next_tool } of ERROR_PATTERNS) {

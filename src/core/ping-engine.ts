@@ -1,6 +1,11 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { PhotoshopAPIFactory } from '../api/photoshop-api.js';
-import { buildPingToolResult } from '../feedback/nudge.js';
+import {
+  buildPingFailureResult,
+  buildPingToolResult,
+  PING_NOT_FOUND_REASON,
+  PING_NOT_RUNNING_REASON,
+} from '../feedback/nudge.js';
 import { PhotoshopConnection } from '../platform/connection.js';
 import { DEFAULT_SCRIPT_TIMEOUT_MS } from '../platform/script-timeout.js';
 
@@ -11,13 +16,14 @@ import { DEFAULT_SCRIPT_TIMEOUT_MS } from '../platform/script-timeout.js';
  */
 export const PING_PROBE_SCRIPT = 'return app.documents.length;';
 
-const NOT_REACHABLE = /photoshop is not running|photoshop not found|photoshop info not available/i;
+const NOT_RUNNING = /photoshop is not running/i;
+const NOT_FOUND = /photoshop not found|photoshop info not available/i;
 
 export async function probePhotoshopEngine(
   connection: PhotoshopConnection
 ): Promise<CallToolResult> {
   const installed = await connection.ping();
-  if (!installed) return buildPingToolResult(false);
+  if (!installed) return buildPingFailureResult(PING_NOT_FOUND_REASON);
 
   try {
     const api = await new PhotoshopAPIFactory(connection).createAPI();
@@ -25,7 +31,8 @@ export async function probePhotoshopEngine(
     return buildPingToolResult(true);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (NOT_REACHABLE.test(message)) return buildPingToolResult(false);
+    if (NOT_RUNNING.test(message)) return buildPingFailureResult(PING_NOT_RUNNING_REASON);
+    if (NOT_FOUND.test(message)) return buildPingFailureResult(PING_NOT_FOUND_REASON);
     throw error;
   }
 }

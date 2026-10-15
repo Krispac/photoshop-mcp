@@ -22,6 +22,10 @@ export const FEEDBACK_NUDGE_LANGUAGE_RULE =
   "MUST ask the user in the language they are using in this conversation. Detect it from their messages; if mixed, use their latest message. Never default to English. Translate Q1 into that language and show only that translation. English and Turkish below are meaning-only examples — do not paste them unless the user is actually speaking that language.";
 export const PING_CONNECTED_TEXT = 'Successfully connected to Photoshop';
 export const PING_FAILED_TEXT = 'Failed to connect to Photoshop';
+export const PING_NOT_FOUND_REASON =
+  'Photoshop was not found. Set PHOTOSHOP_PATH to the Photoshop app (macOS: the .app bundle, Windows: Photoshop.exe), then restart the MCP server.';
+export const PING_NOT_RUNNING_REASON =
+  'Photoshop is not running. Open Photoshop, wait until it finishes starting, then call photoshop_ping again. Ping never launches Photoshop.';
 
 export type FeedbackChoice = 'yes' | 'not_now' | 'dont_ask';
 export type FeedbackNudgeStatus = 'shown' | 'yes' | 'dont_ask';
@@ -242,6 +246,16 @@ export function submitFeedbackFromArgs(args: Record<string, unknown>): CallToolR
           next: "Continue the user's original Photoshop request now. Do not end the turn on this question.",
         }),
       },
+    ],
+  };
+}
+
+/** Failed ping: PING_FAILED_TEXT stays the first block so existing clients still match it. */
+export function buildPingFailureResult(reason: string): CallToolResult {
+  return {
+    content: [
+      { type: 'text', text: PING_FAILED_TEXT },
+      { type: 'text', text: reason },
     ],
   };
 }

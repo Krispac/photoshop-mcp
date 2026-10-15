@@ -19,9 +19,19 @@ Common issues when connecting to or scripting Photoshop through the MCP server.
 
 ### "Failed to connect to Photoshop"
 
-1. Ensure Photoshop is running (the server will try to launch it if not)
-2. Check that scripting is enabled in Photoshop preferences
-3. On Windows, verify COM automation is not blocked by security settings
+The second line of the ping result says why:
+
+1. **Photoshop is not running** — open it and ping again. Ping never launches Photoshop.
+2. **Photoshop was not found** — set `PHOTOSHOP_PATH` (macOS: the `.app` bundle; Windows: `Photoshop.exe`).
+3. On Windows, verify COM automation is not blocked by security settings.
+
+### macOS: Apple-event errors
+
+| Envelope code | osascript code | What to do |
+|---|---|---|
+| `automation_permission_denied` | `-1743` | System Settings > Privacy & Security > Automation: allow the app running the MCP server to control Adobe Photoshop. |
+| `photoshop_unreachable` | `-600`, `-609`, `-10810`, `-10822`, `-10827` | Open Photoshop in the same user session. If the MCP server runs in a sandbox (agent sandbox, Seatbelt, container), allow Apple events or run it outside. |
+| `photoshop_app_not_resolved` | `-1728`, `-2741`, `-10814` | Set `PHOTOSHOP_PATH` to the full `.app` path and restart the MCP server. |
 
 ### "Script execution timeout"
 
