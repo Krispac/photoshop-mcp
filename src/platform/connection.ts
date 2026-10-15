@@ -93,11 +93,7 @@ export class PhotoshopConnection {
     try {
       this.photoshopInfo = await this.detector.detect();
       if (this.photoshopInfo) {
-        writePhotoshopDetectCache({
-          version: this.photoshopInfo.version,
-          path: this.photoshopInfo.path,
-          appName: this.photoshopInfo.appName,
-        });
+        this.writeDetectCache(this.photoshopInfo);
         this.notifyFreshDetect(true);
         return this.photoshopInfo;
       }
@@ -107,6 +103,25 @@ export class PhotoshopConnection {
       this.notifyFreshDetect(false);
       throw error;
     }
+  }
+
+  /** The cache only saves the next spawn a detect; a read-only home must not fail this one. */
+  private writeDetectCache(info: PhotoshopInfo): void {
+    try {
+      writePhotoshopDetectCache({ version: info.version, path: info.path, appName: info.appName });
+    } catch (error) {
+      this.logger.warn('Could not write the Photoshop detect cache:', error);
+    }
+  }
+
+  /**
+   * Detect Photoshop unless this process already has: memory, then the disk
+   * cache, then a real detect. Never launches Photoshop. Tools reach it through
+   * PhotoshopAPIFactory, so the first tool of a session does not depend on an
+   * earlier photoshop_ping. Throws when the platform detector does.
+   */
+  async ensureDetected(): Promise<PhotoshopInfo | null> {
+    return this.resolvePhotoshopInfo();
   }
 
   async ping(): Promise<boolean> {
