@@ -13,6 +13,9 @@ export interface PhotoshopInfo {
   appName?: string;
 }
 
+/** No install was found. envelope.ts maps it to `photoshop_not_detected`. */
+export const PHOTOSHOP_NOT_DETECTED_MESSAGE = 'Photoshop not detected on this system.';
+
 export class PhotoshopConnection {
   private logger: Logger;
   private detector: PhotoshopDetector;
