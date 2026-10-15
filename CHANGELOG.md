@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.37] - 2026-10-15
+
+[v1.7.36...v1.7.37](https://github.com/alisaitteke/photoshop-mcp/compare/v1.7.36...v1.7.37)
+
+### Changed
+
+- Standalone UI: closing a document always goes through the planner. Jev's instant route no longer runs it, because closing drops unsaved changes and cannot be undone.
+
 ## [1.7.36] - 2026-10-15
 
 [v1.7.35...v1.7.36](https://github.com/alisaitteke/photoshop-mcp/compare/v1.7.35...v1.7.36)
