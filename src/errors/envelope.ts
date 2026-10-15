@@ -1,6 +1,7 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { recordMcpToolCall } from '../analytics/mcp-session.js';
 import type { ToolHandler } from '../core/tool-registry.js';
+import { MAC_APP_NOT_RESOLVED_PATTERN } from '../platform/macos-app.js';
 import { readOsDriveFreeBytes } from '../platform/os-free-space.js';
 import { EXECUTE_SCRIPT_RETRY_TIMEOUT_MS } from '../platform/script-timeout.js';
 
@@ -178,7 +179,7 @@ const APPLE_EVENT_ERRORS: Array<{
     suggested_next_tool: 'photoshop_ping',
   },
   {
-    pattern: /\((?:-1728|-2741|-10814)\)/,
+    pattern: MAC_APP_NOT_RESOLVED_PATTERN,
     code: 'photoshop_app_not_resolved',
     hint: 'AppleScript could not resolve the Photoshop application. Set PHOTOSHOP_PATH to the full .app path, for example "/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app", then restart the MCP server.',
     suggested_next_tool: 'photoshop_get_capabilities',

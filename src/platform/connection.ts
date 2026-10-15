@@ -1,10 +1,15 @@
 import { platform } from 'os';
 import { Logger } from '../utils/logger.js';
 import { PhotoshopDetector } from './detector.js';
-import { readPhotoshopDetectCache, writePhotoshopDetectCache } from './detect-cache.js';
+import {
+  clearPhotoshopDetectCache,
+  readPhotoshopDetectCache,
+  writePhotoshopDetectCache,
+} from './detect-cache.js';
 import { ScriptExecutor } from './script-executor.js';
 import { WindowsExecutor } from './windows-executor.js';
 import { MacOSExecutor } from './macos-executor.js';
+import { MAC_APP_NOT_RESOLVED_PATTERN } from './macos-app.js';
 
 export interface PhotoshopInfo {
   version: string;
@@ -16,11 +21,19 @@ export interface PhotoshopInfo {
 /** No install was found. envelope.ts maps it to `photoshop_not_detected`. */
 export const PHOTOSHOP_NOT_DETECTED_MESSAGE = 'Photoshop not detected on this system.';
 
+/** The script never reached Photoshop because its install could not be resolved or started. */
+function isInstallUnusable(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return MAC_APP_NOT_RESOLVED_PATTERN.test(message) || /Failed to launch Photoshop/i.test(message);
+}
+
 export class PhotoshopConnection {
   private logger: Logger;
   private detector: PhotoshopDetector;
   private executor: ScriptExecutor | null = null;
   private photoshopInfo: PhotoshopInfo | null = null;
+  /** photoshopInfo came from the disk cache, not from a detect in this process. */
+  private infoFromCache = false;
   private macosExecutor?: MacOSExecutor;
   private onFreshDetect?: (ok: boolean) => void;
 
@@ -58,12 +71,7 @@ export class PhotoshopConnection {
     if (this.photoshopInfo) return true;
     const cached = readPhotoshopDetectCache();
     if (!cached) return false;
-    this.photoshopInfo = {
-      version: cached.version,
-      path: cached.path,
-      isRunning: false,
-      ...(cached.appName ? { appName: cached.appName } : {}),
-    };
+    this.applyCachedInfo(cached);
     this.logger.debug(`Using cached Photoshop detect at ${cached.path}`);
     return true;
   }
@@ -79,6 +87,14 @@ export class PhotoshopConnection {
       isRunning: false,
       ...(cached.appName ? { appName: cached.appName } : {}),
     };
+    this.infoFromCache = true;
+  }
+
+  /** Forget the detected install, in memory and on disk, so the next call detects again. */
+  invalidateDetection(): void {
+    this.photoshopInfo = null;
+    this.infoFromCache = false;
+    clearPhotoshopDetectCache();
   }
 
   private async resolvePhotoshopInfo(): Promise<PhotoshopInfo | null> {
@@ -91,6 +107,7 @@ export class PhotoshopConnection {
     }
 
     try {
+      this.infoFromCache = false;
       this.photoshopInfo = await this.detector.detect();
       if (this.photoshopInfo) {
         this.writeDetectCache(this.photoshopInfo);
@@ -151,29 +168,52 @@ export class PhotoshopConnection {
     options?: { launch?: boolean }
   ): Promise<unknown> {
     try {
-      await this.resolvePhotoshopInfo();
-      if (!this.photoshopInfo) {
-        throw new Error('Photoshop not found on this system');
-      }
-
-      const executor = this.getExecutor();
-      this.applyMacOSTarget();
-
-      const isRunning = await executor.isPhotoshopRunning();
-      if (!isRunning) {
-        if (options?.launch === false) {
-          throw new Error('Photoshop is not running');
-        }
-        this.logger.info('Photoshop not running, launching...');
-        await executor.launchPhotoshop(this.photoshopInfo.path);
-      }
-
-      const result = await executor.execute(script, timeout);
-      return result;
+      return await this.runScript(script, timeout, options);
     } catch (error) {
-      this.logger.error('Script execution failed:', error);
-      throw error;
+      // A cached install can go stale between spawns (uninstalled, moved or
+      // upgraded). The script never ran, so detect once more and retry once.
+      // Timeouts and script errors did run, or may still be running: never retry.
+      if (!this.infoFromCache || !isInstallUnusable(error)) {
+        this.logger.error('Script execution failed:', error);
+        throw error;
+      }
+      this.logger.warn(
+        'Cached Photoshop install could not be resolved or started; detecting again:',
+        error
+      );
+      this.invalidateDetection();
+      try {
+        return await this.runScript(script, timeout, options);
+      } catch (retryError) {
+        this.logger.error('Script execution failed:', retryError);
+        throw retryError;
+      }
     }
+  }
+
+  private async runScript(
+    script: string,
+    timeout?: number,
+    options?: { launch?: boolean }
+  ): Promise<unknown> {
+    await this.resolvePhotoshopInfo();
+    if (!this.photoshopInfo) {
+      throw new Error('Photoshop not found on this system');
+    }
+
+    const executor = this.getExecutor();
+    this.applyMacOSTarget();
+
+    const isRunning = await executor.isPhotoshopRunning();
+    if (!isRunning) {
+      if (options?.launch === false) {
+        throw new Error('Photoshop is not running');
+      }
+      this.logger.info('Photoshop not running, launching...');
+      await executor.launchPhotoshop(this.photoshopInfo.path);
+    }
+
+    return executor.execute(script, timeout);
   }
 
   getPhotoshopInfo(): PhotoshopInfo | null {
