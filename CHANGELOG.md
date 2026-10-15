@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.35] - 2026-10-15
+
+[v1.7.34...v1.7.35](https://github.com/alisaitteke/photoshop-mcp/compare/v1.7.34...v1.7.35)
+
+### Fixed
+
+- macOS: a closed Photoshop is no longer reported as running because AdobeIPCBroker carries its path, so `photoshop_ping` no longer launches it. The running check matches only the detected install's executable, so a Photoshop 2025 running next to 2026 no longer counts, and it falls back to AppleScript inside sandboxed hosts where `pgrep` is denied (#72).
+- macOS: scripts target the detected `.app` path instead of its display name. `PHOTOSHOP_PATH` may point at the bundle, the bundle with a trailing slash, or the executable inside it (#72).
+- macOS: osascript failures return `photoshop_unreachable`, `automation_permission_denied` or `photoshop_app_not_resolved` with the original error and a fix. A failed `photoshop_ping` now says whether Photoshop was not found or not running (#72).
+- Logs show the error message instead of `{}` (from #59).
+
 ## [1.7.34] - 2026-10-08
 
 [v1.7.33...v1.7.34](https://github.com/alisaitteke/photoshop-mcp/compare/v1.7.33...v1.7.34)
