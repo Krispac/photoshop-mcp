@@ -26,7 +26,7 @@ export interface InstantIntent {
   slots?: SlotSpec[];
   /** Slot keys that must be resolved before the intent can run instantly. */
   requires?: string[];
-  /** Flatten, merge, or delete: never run without the planner. */
+  /** Flatten, merge, delete, or close: never run without the planner. Closing drops unsaved changes outside the History panel. */
   risky?: boolean;
   /** A required argument is free text (path, prompt, copy). Jev cannot write it. */
   unfillable?: boolean;
@@ -48,7 +48,7 @@ export function hasUnboundedQuantifier(text: string): boolean {
   return UNBOUNDED.test(text);
 }
 
-const RISKY_NAME = /(?:^|_)(?:flatten|merge|delete)(?:_|$)/;
+const RISKY_NAME = /(?:^|_)(?:flatten|merge|delete|close)(?:_|$)/;
 
 interface SchemaProp {
   type?: string | string[];

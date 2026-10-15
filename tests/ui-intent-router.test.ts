@@ -70,6 +70,13 @@ describe('intent router: decide (single command)', () => {
     expect(d.reason).toMatch(/hard to undo/);
   });
 
+  it('never closes a document instantly: closing drops unsaved changes outside History', () => {
+    expect(findIntent('photoshop_close_document')?.risky).toBe(true);
+    const d = decide(answers({ intent: pick('photoshop_close_document', 0.99) }), meta);
+    expect(d.route).toBe('plan');
+    expect(d.reason).toMatch(/hard to undo/);
+  });
+
   it('falls back when confidence is below the instant threshold', () => {
     const d = decide(answers({ intent: pick('photoshop_undo', THRESHOLDS.instant - 0.01) }), meta);
     expect(d.route).not.toBe('instant');
