@@ -81,7 +81,7 @@ model runs:
 | Route | When | What runs |
 |---|---|---|
 | **Instant** | One known, safe command or recipe with every required value resolved, or a chain of up to 4 of them | The tools in order, then one preview. No LLM call, no token cost. |
-| **Plan** | Several operations that are not all known, or a hard-to-undo one (merge, flatten) | Action Plan |
+| **Plan** | Several operations that are not all known, or a hard-to-undo one (merge, flatten, close) | Action Plan |
 | **Look & iterate** | The image has to be inspected to decide | Agent loop with previews |
 | **Ask first** | Too vague | Agent loop, told to ask one question first |
 
@@ -91,8 +91,8 @@ Jev's signals (multi-step, specific, needs a look). Thresholds live in
 criterion is the tool's "Use when" line (or its first sentence). Argument
 slots come from the tool schema (enum, number, boolean, enum list). A required
 path or other free-text value goes to the planner, and so does "undo all" /
-"tüm değişiklikleri geri al", which is not a step count. Flatten, merge and
-delete never run instantly.
+"tüm değişiklikleri geri al", which is not a step count. Flatten, merge,
+delete and close never run instantly.
 
 **Recipes.** A recipe is one registered tool, so Jev can pick it like any other command. Slots still come only from the schema. A value that is not stated uses the tool default; a required number (the slide count) must be stated. A required path or other free-text argument (sky blend, batch mockups, CSV cards) is not filled by Jev and goes through the planner.
 
