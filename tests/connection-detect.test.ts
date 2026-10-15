@@ -24,10 +24,7 @@ import {
   writePhotoshopDetectCache,
 } from '../src/platform/detect-cache.js';
 import { MacOSExecutor } from '../src/platform/macos-executor.js';
-import {
-  PHOTOSHOP_NOT_DETECTED_MESSAGE,
-  PhotoshopConnection,
-} from '../src/platform/connection.js';
+import { PHOTOSHOP_NOT_DETECTED_MESSAGE, PhotoshopConnection } from '../src/platform/connection.js';
 import { runSnippet } from '../src/tools/atomic-shared.js';
 
 const APP_2026 = '/Applications/Adobe Photoshop 2026/Adobe Photoshop 2026.app';
@@ -75,6 +72,33 @@ describe('PhotoshopAPIFactory detects Photoshop on the first tool call', () => {
     expect(connection.getPhotoshopInfo()?.path).toBe(APP_2026);
     expect(running).not.toHaveBeenCalled();
     expect(launch).not.toHaveBeenCalled();
+  });
+
+  it('shares one detect between parallel first tool calls', async () => {
+    let finish!: (info: ReturnType<typeof installed>) => void;
+    detect.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const connection = new PhotoshopConnection();
+    const factory = new PhotoshopAPIFactory(connection);
+
+    const calls = Promise.all([factory.createAPI(), factory.createAPI(), factory.createAPI()]);
+    finish(installed());
+    await calls;
+
+    expect(detect).toHaveBeenCalledTimes(1);
+  });
+
+  it('detects again on the next call after a shared detect failed', async () => {
+    detect.mockRejectedValueOnce(new Error('Photoshop not found on this system'));
+    const connection = new PhotoshopConnection();
+    const factory = new PhotoshopAPIFactory(connection);
+
+    const first = await Promise.allSettled([factory.createAPI(), factory.createAPI()]);
+    expect(first.every((r) => r.status === 'rejected')).toBe(true);
+    expect(detect).toHaveBeenCalledTimes(1);
+
+    detect.mockResolvedValueOnce(installed());
+    await factory.createAPI();
+    expect(detect).toHaveBeenCalledTimes(2);
   });
 
   it('runs the first snippet of a fresh session instead of "Photoshop info not available"', async () => {
@@ -222,7 +246,9 @@ describe('PhotoshopConnection recovers from a stale cached install', () => {
     const launch = vi
       .spyOn(MacOSExecutor.prototype, 'launchPhotoshop')
       .mockRejectedValueOnce(
-        new Error('Failed to launch Photoshop: spawn C:\\Adobe Photoshop 2025\\Photoshop.exe ENOENT')
+        new Error(
+          'Failed to launch Photoshop: spawn C:\\Adobe Photoshop 2025\\Photoshop.exe ENOENT'
+        )
       )
       .mockResolvedValueOnce(undefined);
     mockExecute('ok');
@@ -255,7 +281,10 @@ describe('PhotoshopConnection recovers from a stale cached install', () => {
   it.each([
     ['a script timeout', 'Script execution timeout'],
     ['an ExtendScript error', 'Error 8: Syntax error. (number: 8)'],
-    ['Photoshop not running', 'execution error: Adobe Photoshop 2025 got an error: Application isn’t running. (-600)'],
+    [
+      'Photoshop not running',
+      'execution error: Adobe Photoshop 2025 got an error: Application isn’t running. (-600)',
+    ],
   ])('leaves the cache alone after %s', async (_label, message) => {
     const execute = mockExecute(new Error(message));
 

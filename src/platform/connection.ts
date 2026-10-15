@@ -34,6 +34,7 @@ export class PhotoshopConnection {
   private photoshopInfo: PhotoshopInfo | null = null;
   /** photoshopInfo came from the disk cache, not from a detect in this process. */
   private infoFromCache = false;
+  private detectInFlight: Promise<PhotoshopInfo | null> | null = null;
   private macosExecutor?: MacOSExecutor;
   private onFreshDetect?: (ok: boolean) => void;
 
@@ -106,6 +107,17 @@ export class PhotoshopConnection {
       return this.photoshopInfo;
     }
 
+    // Agents often call several tools in parallel at session start; they share
+    // one detect (Spotlight / PowerShell / registry) instead of each running it.
+    if (!this.detectInFlight) {
+      this.detectInFlight = this.detectFresh().finally(() => {
+        this.detectInFlight = null;
+      });
+    }
+    return this.detectInFlight;
+  }
+
+  private async detectFresh(): Promise<PhotoshopInfo | null> {
     try {
       this.infoFromCache = false;
       this.photoshopInfo = await this.detector.detect();
