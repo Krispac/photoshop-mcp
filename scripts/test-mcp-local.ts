@@ -85,6 +85,7 @@ async function main(): Promise<void> {
     'ps.remove_distraction',
     'ps.sky_blend',
     'ps.split_carousel',
+    'ps.sticker_outline',
   ];
   const expectedGuidePrompts = [
     'ps.color_correct',
