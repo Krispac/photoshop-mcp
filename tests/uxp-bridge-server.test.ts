@@ -132,4 +132,14 @@ describe('UxpBridgeServer plugin handshake', () => {
     }
     await invocation; // ok:false result — the point was liveness, not the payload
   });
+
+  it('drops a command that timed out before any plugin picked it up', async () => {
+    // Otherwise a neural filter the user already saw fail would run later,
+    // on whatever document is active when the panel next polls.
+    const result = await invokeUxpBridge('neural_filter', { filter: 'colorize' }, 300);
+    expect(result).toMatchObject({ ok: false, error: 'uxp_bridge_timeout' });
+    const health = JSON.parse((await get('/health')).body) as { pending: number };
+    expect(health.pending).toBe(0);
+    expect((await get('/poll')).status).toBe(204);
+  });
 });

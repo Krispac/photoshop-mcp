@@ -60,4 +60,11 @@ describe('PhotoshopAPIFactory (issue #57)', () => {
     expect(executed[0].script).toContain('ERROR:');
     expect(executed[0].script).toContain('return { ok: true };');
   });
+
+  it('accepts the override with surrounding whitespace (Windows `set X=uxp && ...`)', async () => {
+    process.env[API_OVERRIDE_ENV] = ' UXP ';
+    const { connection } = makeConnection();
+    const api = await new PhotoshopAPIFactory(connection).createAPI();
+    expect(api.getAPIType()).toBe('UXP');
+  });
 });

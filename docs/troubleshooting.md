@@ -70,7 +70,7 @@ Fredoka Bold is the named instance `Fredoka-Bold` inside the variable font `Fred
 
 ### Every tool call returns `extendscript_timeout` (UXP bridge panel is loaded)
 
-**Symptom:** `photoshop_ping` succeeds, but every script-executing tool (`photoshop_get_state`, `photoshop_list_documents`, …) fails after ~30s with `extendscript_timeout`, and debug logs show `Using ExtendScript for version … (UXP not available for external scripting)` even though the **MCP Bridge** panel in Photoshop visibly says it is polling.
+**Symptom:** every script-executing tool, including `photoshop_ping`, fails after ~30s with `extendscript_timeout`, even though the **MCP Bridge** panel in Photoshop visibly says it is polling. Before 1.7.36 the debug log also said `Using ExtendScript for version … (UXP not available for external scripting)`.
 
 **Cause:** Two different channels are involved, and only one of them runs tool scripts:
 

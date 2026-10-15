@@ -85,7 +85,7 @@ export class PhotoshopAPIFactory {
     //
     // PHOTOSHOP_MCP_API=uxp forces the UXP path so the bridge can be tested
     // end-to-end instead of silently falling through to ExtendScript.
-    const override = (process.env[API_OVERRIDE_ENV] ?? 'auto').toLowerCase();
+    const override = process.env[API_OVERRIDE_ENV]?.trim().toLowerCase() || 'auto';
     if (override === 'uxp' || override === 'extendscript') {
       this.logger.debug(
         `Using ${override} API for version ${version} (${API_OVERRIDE_ENV}=${override})`

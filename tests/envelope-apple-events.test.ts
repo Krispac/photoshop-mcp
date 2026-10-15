@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyError } from '../src/errors/envelope.js';
+import { classifyError, refineTimeoutEnvelope } from '../src/errors/envelope.js';
 
 const osascriptFailure = (detail: string) =>
   `Command failed: osascript "/var/folders/xy/T/photoshop-applescript-1.scpt"\n` +
@@ -28,5 +28,11 @@ describe('classifyError on macOS osascript failures (#72)', () => {
 
   it('leaves ExtendScript runtime errors alone', () => {
     expect(classifyError('ERROR: Error 8: Syntax error.').code).toBe('extendscript_runtime_error');
+  });
+
+  it('does not send script timeouts to the UXP bridge, which cannot run tool scripts', () => {
+    const refined = refineTimeoutEnvelope('photoshop_get_state', classifyError('Script execution timeout'));
+    expect(refined.message).not.toMatch(/uxp_bridge_reachable/);
+    expect(refined.message).toMatch(/scripting path/);
   });
 });

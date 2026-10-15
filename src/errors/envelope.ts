@@ -224,7 +224,7 @@ export function classifyError(message: string): PhotoshopErrorEnvelope {
 
 const TIMEOUT_BUSY_HINT =
   'The MCP wait ended; Photoshop may still be running that script. Call photoshop_ping until it succeeds before more edits. ' +
-  'If every tool call times out (not just long ones), the scripting path itself is not responding — run photoshop_get_capabilities and check uxp_bridge_reachable to see whether the UXP bridge plugin is connected.';
+  'If every tool call times out, including photoshop_ping, the scripting path itself is not responding (a modal dialog in Photoshop, or on Windows COM starting a different Photoshop version). The UXP bridge panel cannot carry tool scripts.';
 
 /**
  * Timeouts are classified without knowing which tool failed. Once the wrapper

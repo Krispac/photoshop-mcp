@@ -175,6 +175,10 @@ export async function invokeUxpBridge(
     await new Promise((r) => setTimeout(r, 250));
   }
 
+  // A command no plugin picked up must not run later: the caller already got
+  // a timeout, and the next poll could apply it to whatever document is open.
+  const queued = pendingCommands.findIndex((cmd) => cmd.id === id);
+  if (queued !== -1) pendingCommands.splice(queued, 1);
   inFlightCommands.delete(id);
   return { id, ok: false, error: 'uxp_bridge_timeout' };
 }
