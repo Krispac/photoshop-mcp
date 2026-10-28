@@ -179,3 +179,6 @@ MIT
 
 Anonymous, aggregated usage analytics are collected by default and can be
 disabled anytime — details in [`docs/anonymous-usage-analytics.md`](docs/anonymous-usage-analytics.md).
+# Local extension
+
+This checkout includes one additional tool, `photoshop_select_polygon` (129 tools total). See [usage, validation and rollback](docs/local-polygon-selection.md). Upstream count tables elsewhere describe the unmodified release.
