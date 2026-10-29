@@ -133,7 +133,7 @@ const parse = (r) => {
       .map((x) => x.text)
       .join('\n') ?? '';
   try {
-    return JSON.parse(t);
+    return JSON.parse(t.startsWith('Layers:') ? t.slice(t.indexOf('{')) : t);
   } catch {
     return { text: t };
   }
@@ -230,7 +230,9 @@ export async function runRetouchJob(job, client, validators) {
     throw Error('Document dimensions mismatch');
   if (state.hasSelection ?? d.hasSelection) throw Error('Deselect before retouch job');
   const completeLayers = await call('photoshop_get_layers');
-  const layers = flatten(completeLayers.layers ?? completeLayers.details?.layers ?? d.layers),
+  const listed = completeLayers.layers ?? completeLayers.details?.layers;
+  if (!Array.isArray(listed)) throw Error('Complete layer list unavailable');
+  const layers = flatten(listed),
     names = layers.map((x) => x.name);
   if (j.expected.layer_names && j.expected.layer_names.some((x) => !names.includes(x)))
     throw Error('Expected layer name missing');

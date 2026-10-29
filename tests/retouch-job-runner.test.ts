@@ -63,6 +63,15 @@ function fake(
         if (name === 'photoshop_get_state')
           return { content: [{ type: 'text', text: JSON.stringify(state) }] };
         calls.push(name);
+        if (name === 'photoshop_get_layers')
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'Layers:\\n' + JSON.stringify({ layers: state.document.layers ?? [] }),
+              },
+            ],
+          };
         return { content: [{ type: 'text', text: JSON.stringify({ ok: true }) }] };
       },
     } as any,
@@ -410,4 +419,50 @@ it('treats native script timeout as unknown and never resubmits it', async () =>
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+it.each(['Layers:\\n', 'Layers:\n'])(
+  'decodes the native prefixed full layer response including layers omitted by get_state (%s)',
+  async (prefix) => {
+    const f = fake({
+      document: {
+        id: 7,
+        colorMode: 'DocumentMode.RGB',
+        bitsPerChannel: 'BitsPerChannelType.SIXTEEN',
+        width: 100,
+        height: 80,
+        hasSelection: false,
+        layers: [{ name: 'Group' }],
+      },
+    });
+    const client = {
+      callTool: async (r: any) =>
+        r.name === 'photoshop_get_layers'
+          ? {
+              content: [
+                {
+                  type: 'text',
+                  text:
+                    prefix +
+                    JSON.stringify({
+                      layers: [{ name: 'Group' }, { name: 'RAW', kind: 'LayerKind.NORMAL' }],
+                    }),
+                },
+              ],
+            }
+          : f.client.callTool(r),
+    };
+    expect((await runRetouchJob(job(), client)).ok).toBe(true);
+  }
+);
+it('rejects an unreadable complete layer list instead of trusting the truncated state', async () => {
+  const f = fake();
+  const client = {
+    callTool: async (r: any) =>
+      r.name === 'photoshop_get_layers'
+        ? { content: [{ type: 'text', text: 'Layers: not-json' }] }
+        : f.client.callTool(r),
+  };
+  await expect(runRetouchJob(job(), client)).rejects.toThrow(/layer list/);
+  expect(f.calls).toEqual(['photoshop_ping']);
 });
