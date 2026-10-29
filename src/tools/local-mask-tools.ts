@@ -139,13 +139,19 @@ export function detailPreviewScript(args: Record<string, unknown>, path: string)
     if(${native} && scale<1) throw new Error('Native-pixel preview exceeds max_dimension_px; request a smaller region');
     var layer=${source === 'layer_mask' ? `findLayer(${layer})` : 'null'},info=null;
     if(layer) info=requireMask(layer);
-    var preview=null;
+    var preview=null,oldLayer=null,oldChannels=null;
+    if(layer){oldLayer=doc.activeLayer;oldChannels=doc.activeChannels;}
     try {
       ${
         source === 'layer_mask'
           ? `
+      var selectDesc=new ActionDescriptor();selectDesc.putReference(c('null'),layerRef(layer));selectDesc.putBoolean(s('makeVisible'),false);
+      executeAction(c('slct'),selectDesc,DialogModes.NO);
+      var maskSelect=new ActionDescriptor();maskSelect.putReference(c('null'),maskRef(layer));maskSelect.putBoolean(s('makeVisible'),false);
+      executeAction(c('slct'),maskSelect,DialogModes.NO);
       var d=new ActionDescriptor(),spec=new ActionDescriptor();spec.putString(s('name'),'MCP mask preview');
-      d.putObject(s('new'),s('document'),spec);d.putReference(s('using'),maskRef(layer));d.putString(s('channelName'),'MCP mask');
+      var activeChannel=new ActionReference();activeChannel.putEnumerated(c('Chnl'),c('Ordn'),c('Trgt'));
+      d.putObject(s('new'),s('document'),spec);d.putReference(s('using'),activeChannel);d.putString(s('channelName'),'MCP mask');
       executeAction(s('make'),d,DialogModes.NO);preview=app.activeDocument;
       if(preview.id===doc.id) throw new Error('Mask channel did not duplicate into a new document');
       preview.changeMode(ChangeMode.GRAYSCALE);
@@ -157,7 +163,8 @@ export function detailPreviewScript(args: Record<string, unknown>, path: string)
       preview.flatten();var file=new File(${jsStringLiteral(path)}),opts=new JPEGSaveOptions();opts.quality=12;opts.embedColorProfile=true;
       preview.saveAs(file,opts,true);
       return {ok:true,path:file.fsName,document_id:doc.id,source:${jsStringLiteral(source)},layer_id:layer?layer.id:null,layer_name:layer?layer.name:null,region:region,scale:scale,width:Math.round(rw*scale),height:Math.round(rh*scale),native_pixels:scale===1};
-    }finally{if(preview && preview.id!==doc.id)try{preview.close(SaveOptions.DONOTSAVECHANGES);}catch(closeError){} app.activeDocument=doc;}
+    }finally{if(preview && preview.id!==doc.id)try{preview.close(SaveOptions.DONOTSAVECHANGES);}catch(closeError){} app.activeDocument=doc;
+      if(layer){var restore=new ActionDescriptor();restore.putReference(c('null'),layerRef(oldLayer));restore.putBoolean(s('makeVisible'),false);executeAction(c('slct'),restore,DialogModes.NO);doc.activeChannels=oldChannels;}}
   `;
 }
 

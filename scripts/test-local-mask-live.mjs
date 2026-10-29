@@ -73,6 +73,7 @@ try {
     bottom: 130,
   });
   await call('photoshop_save_selection', { document_id: id, channel_name: 'Original patch' });
+  await call('photoshop_create_layer', { document_id: id, name: 'Context fixture' });
   let r = parse(
     await call('photoshop_fill_layer_mask', {
       document_id: id,
@@ -92,6 +93,10 @@ try {
   );
   assert.equal(r.details.context_restored, true);
   await preview('layer_mask', 'gray');
+  assert.equal(
+    parse(await call('photoshop_get_state', { document_id: id })).activeLayer.name,
+    'Context fixture'
+  );
   r = parse(await call('photoshop_get_selection_bounds', { document_id: id }));
   assert.deepEqual(r.details.bounds, {
     left: 70,
@@ -123,6 +128,7 @@ try {
     })
   );
   assert.deepEqual(r.details.bounds, [20, 20, 180, 180]);
+  await call('photoshop_select_layer_by_name', { document_id: id, name: 'Mask fixture' });
   await call('photoshop_set_layer_visibility', { document_id: id, visible: false });
   const hiddenEdit = await client.callTool({
     name: 'photoshop_fill_layer_mask',

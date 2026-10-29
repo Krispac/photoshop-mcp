@@ -132,6 +132,53 @@ it('rejects oversized native crops before duplicating a document', () => {
   expect(duplicates).toBe(0);
 });
 
+it('does not convert or close the source when Photoshop fails to create a mask preview document', () => {
+  let conversions = 0,
+    closes = 0;
+  const layer = { id: 4, name: 'target' };
+  const doc = {
+    id: 1,
+    layers: [layer],
+    activeLayer: layer,
+    activeChannels: [],
+    width: { as: () => 100 },
+    height: { as: () => 100 },
+    changeMode: () => {
+      conversions++;
+    },
+    close: () => {
+      closes++;
+    },
+  };
+  class Ref {
+    putIdentifier() {}
+    putEnumerated() {}
+  }
+  class Desc {
+    putReference() {}
+    putBoolean() {}
+    putObject() {}
+    putString() {}
+  }
+  expect(() =>
+    runInNewContext(
+      `(function(){${detailPreviewScript({ source: 'layer_mask', layer_name: 'target' }, '/tmp/test.jpg')}})()`,
+      {
+        app: { documents: [doc], activeDocument: doc },
+        charIDToTypeID: (s: string) => s,
+        stringIDToTypeID: (s: string) => s,
+        ActionReference: Ref,
+        ActionDescriptor: Desc,
+        DialogModes: { NO: 0 },
+        executeActionGet: () => ({ hasKey: () => true, getBoolean: () => true }),
+        executeAction: () => {},
+      }
+    )
+  ).toThrow(/did not duplicate/);
+  expect(conversions).toBe(0);
+  expect(closes).toBe(0);
+});
+
 it('delete/apply explicitly target the pixel mask rather than the active channel', () => {
   for (const apply of [false, true]) {
     let exists = true;
