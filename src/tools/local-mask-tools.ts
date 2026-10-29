@@ -33,6 +33,7 @@ export const maskHelpers = `
     return d;
   }
   function layerRef(layer) { var r=new ActionReference(); r.putIdentifier(c('Lyr '),layer.id); return r; }
+  function captureChannels(){try{return {channels:doc.activeChannels,exact:true};}catch(e){var a=[];for(var i=0;i<doc.channels.length;i++)if(doc.channels[i].kind===ChannelType.COMPONENT)a.push(doc.channels[i]);if(!a.length)throw e;return {channels:a,exact:false};}}
 `;
 
 function name(value: unknown, key: string): string {
@@ -90,7 +91,7 @@ export function fillMaskScript(args: Record<string, unknown>): string {
     var layer=findLayer(${layer}); requireMask(layer);
     var b;try {b=doc.selection.bounds;}catch(empty){throw new Error('Active pixel selection required; refusing whole-mask fill');}
     if(layer.allLocked) throw new Error('Target layer is locked');
-    var oldLayer=doc.activeLayer, oldChannels=doc.activeChannels;
+    var oldLayer=doc.activeLayer,channelState=captureChannels(),oldChannels=channelState.channels;
     var ancestors=[],current=layer;
     while(current && current.typename!=='Document') {if(current.visible===false) throw new Error('Target layer or parent is hidden; enable it intentionally before editing the mask');
       if(current.allLocked) throw new Error('Target layer or parent is locked');
@@ -105,7 +106,7 @@ export function fillMaskScript(args: Record<string, unknown>): string {
       for(var i=ancestors.length-1;i>=0;i--)try{if(ancestors[i].layer.visible!==ancestors[i].visible) ancestors[i].layer.visible=ancestors[i].visible;}catch(eVisible){restored=false;}
       try {doc.activeLayer=oldLayer;doc.activeChannels=oldChannels;}catch(eRestore){restored=false;}
     }
-    return {ok:true,document_id:doc.id,layer_id:layer.id,layer_name:layer.name,value:${value},opacity:${opacity},mask_changed:applied,context_restored:restored};
+    return {ok:true,document_id:doc.id,layer_id:layer.id,layer_name:layer.name,value:${value},opacity:${opacity},mask_changed:applied,context_restored:restored&&channelState.exact,channel_restore:channelState.exact?'exact':'composite_fallback'};
   `;
 }
 
@@ -139,8 +140,8 @@ export function detailPreviewScript(args: Record<string, unknown>, path: string)
     if(${native} && scale<1) throw new Error('Native-pixel preview exceeds max_dimension_px; request a smaller region');
     var layer=${source === 'layer_mask' ? `findLayer(${layer})` : 'null'},info=null;
     if(layer) info=requireMask(layer);
-    var preview=null,oldLayer=null,oldChannels=null;
-    if(layer){oldLayer=doc.activeLayer;oldChannels=doc.activeChannels;}
+    var preview=null,oldLayer=null,oldChannels=null,channelState=null;
+    if(layer){oldLayer=doc.activeLayer;channelState=captureChannels();oldChannels=channelState.channels;}
     try {
       ${
         source === 'layer_mask'
@@ -162,7 +163,7 @@ export function detailPreviewScript(args: Record<string, unknown>, path: string)
       if(scale<1) preview.resizeImage(UnitValue(Math.round(rw*scale),'px'),UnitValue(Math.round(rh*scale),'px'),null,ResampleMethod.BICUBIC);
       preview.flatten();var file=new File(${jsStringLiteral(path)}),opts=new JPEGSaveOptions();opts.quality=12;opts.embedColorProfile=true;
       preview.saveAs(file,opts,true);
-      return {ok:true,path:file.fsName,document_id:doc.id,source:${jsStringLiteral(source)},layer_id:layer?layer.id:null,layer_name:layer?layer.name:null,region:region,scale:scale,width:Math.round(rw*scale),height:Math.round(rh*scale),native_pixels:scale===1};
+      return {ok:true,path:file.fsName,document_id:doc.id,source:${jsStringLiteral(source)},layer_id:layer?layer.id:null,layer_name:layer?layer.name:null,region:region,scale:scale,width:Math.round(rw*scale),height:Math.round(rh*scale),native_pixels:scale===1,channel_restore:channelState?(channelState.exact?'exact':'composite_fallback'):'unchanged'};
     }finally{if(preview && preview.id!==doc.id)try{preview.close(SaveOptions.DONOTSAVECHANGES);}catch(closeError){} app.activeDocument=doc;
       if(layer){var restore=new ActionDescriptor();restore.putReference(c('null'),layerRef(oldLayer));restore.putBoolean(s('makeVisible'),false);executeAction(c('slct'),restore,DialogModes.NO);doc.activeChannels=oldChannels;}}
   `;
