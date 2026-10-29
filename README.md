@@ -182,3 +182,5 @@ disabled anytime — details in [`docs/anonymous-usage-analytics.md`](docs/anony
 # Local extension
 
 This checkout includes polygon selection, edge refinement, existing-mask correction, selection reload, 1:1 image/mask previews and Smart Filter controls (139 tools total). Smart Filter tools require an exact unique layer name and an existing editable Smart Object; Gaussian Filter updates require a 1-based index and expected current radius. Bounds reports are measurements, not proof of pixel integrity. See [polygon usage](docs/local-polygon-selection.md), [edge refinement](docs/local-refine-selection.md) [the local correction loop](docs/local-mask-workflow.md) and [Smart Filter controls, full-frame sources and validation](docs/local-smart-filters.md). For code-owned mask batches, durable local execution and compact receipts see [mask workflow](docs/local-mask-workflow-runner.md). Upstream count tables elsewhere describe the unmodified release.
+
+Reusable photo stages in one local SDK session: [retouch job runner](docs/local-retouch-job-runner.md), with editable full-frame effects, masked light/grain and the existing durable receipts.

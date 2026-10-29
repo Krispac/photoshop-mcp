@@ -1358,15 +1358,15 @@ export const ExtendScriptSnippets = {
   /**
    * Save document as PSD
    */
-  saveAsPSD: (path: string) => `
+  saveAsPSD: (path: string, asCopy = true) => `
     if (app.documents.length === 0) {
       throw new Error('No active document');
     }
     var doc = app.activeDocument;
-    var saveFile = new File("${path.replace(/\\/g, '\\\\')}");
+    var saveFile = new File(${jsStringLiteral(path)});
     var psdOptions = new PhotoshopSaveOptions();
     psdOptions.embedColorProfile = true;
-    doc.saveAs(saveFile, psdOptions, true);
+    doc.saveAs(saveFile, psdOptions, ${asCopy});
     return { path: saveFile.fsName };
   `,
 
