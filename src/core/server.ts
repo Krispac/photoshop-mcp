@@ -38,6 +38,7 @@ import { createSelectionTools } from '../tools/selection-tools.js';
 import { createPolygonSelectionTools } from '../tools/polygon-selection-tools.js';
 import { createRefineSelectionTools } from '../tools/refine-selection-tools.js';
 import { createLocalMaskTools } from '../tools/local-mask-tools.js';
+import { createMaskWorkflowTools } from '../tools/mask-workflow-tools.js';
 import { createSmartFilterTools } from '../tools/smart-filter-tools.js';
 import { createMaskTools } from '../tools/mask-tools.js';
 import { createActionTools } from '../tools/action-tools.js';
@@ -138,6 +139,7 @@ export class PhotoshopMCPServer {
     this.registerToolDefinitions(createRefineSelectionTools(connection));
     this.registerToolDefinitions(createLocalMaskTools(connection));
     this.registerToolDefinitions(createSmartFilterTools(connection));
+    this.registerToolDefinitions(createMaskWorkflowTools(connection));
     this.registerToolDefinitions(createMaskTools(connection));
     this.registerToolDefinitions(createActionTools(connection));
     this.registerToolDefinitions(createHistoryTools(connection));

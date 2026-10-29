@@ -112,9 +112,9 @@ export function fillMaskScript(args: Record<string, unknown>): string {
 
 export function detailPreviewScript(args: Record<string, unknown>, path: string): string {
   const source = args.source === undefined ? 'composite' : args.source;
-  if (source !== 'composite' && source !== 'layer_mask')
-    throw new Error('source must be composite or layer_mask');
-  const layer = source === 'layer_mask' ? name(args.layer_name, 'layer_name') : 'null';
+  if (source !== 'composite' && source !== 'layer_mask' && source !== 'raster_layer')
+    throw new Error('source must be composite, layer_mask or raster_layer');
+  const layer = source !== 'composite' ? name(args.layer_name, 'layer_name') : 'null';
   const max = number(
     args.max_dimension_px === undefined ? (args.region ? 2048 : 1024) : args.max_dimension_px,
     'max_dimension_px',
@@ -138,8 +138,9 @@ export function detailPreviewScript(args: Record<string, unknown>, path: string)
     if(region[2]>w||region[3]>h) throw new Error('region outside document canvas');
     var rw=region[2]-region[0],rh=region[3]-region[1],scale=Math.min(1,${max}/Math.max(rw,rh));
     if(${native} && scale<1) throw new Error('Native-pixel preview exceeds max_dimension_px; request a smaller region');
-    var layer=${source === 'layer_mask' ? `findLayer(${layer})` : 'null'},info=null;
-    if(layer) info=requireMask(layer);
+    var layer=${source !== 'composite' ? `findLayer(${layer})` : 'null'},info=null;
+    if(layer && ${source === 'layer_mask'}) info=requireMask(layer);
+    if(${source === 'raster_layer'} && (layer.kind!==LayerKind.NORMAL || doc.mode!==DocumentMode.RGB)) throw new Error('Raw layer preview requires an RGB raster source');
     var preview=null,oldLayer=null,oldChannels=null,channelState=null;
     if(layer){oldLayer=doc.activeLayer;channelState=captureChannels();oldChannels=channelState.channels;}
     try {
@@ -157,7 +158,9 @@ export function detailPreviewScript(args: Record<string, unknown>, path: string)
       if(preview.id===doc.id) throw new Error('Mask channel did not duplicate into a new document');
       preview.changeMode(ChangeMode.GRAYSCALE);
       `
-          : `preview=doc.duplicate('MCP detail preview',true);`
+          : source === 'raster_layer'
+            ? `var sel=new ActionDescriptor();sel.putReference(c('null'),layerRef(layer));sel.putBoolean(s('makeVisible'),false);executeAction(c('slct'),sel,DialogModes.NO);var make=new ActionDescriptor(),dest=new ActionReference();dest.putClass(c('Dcmn'));make.putReference(c('null'),dest);make.putString(c('Nm  '),'MCP raw layer preview');make.putReference(c('Usng'),layerRef(layer));executeAction(c('Mk  '),make,DialogModes.NO);preview=app.activeDocument;if(preview.id===doc.id)throw Error('Raw layer preview did not create a new document');if(preview.width.as('px')!==w||preview.height.as('px')!==h)throw Error('Raw layer preview canvas changed');if(!preview.activeLayer.visible)preview.activeLayer.visible=true;`
+            : `preview=doc.duplicate('MCP detail preview',true);`
       }
       preview.crop([UnitValue(region[0],'px'),UnitValue(region[1],'px'),UnitValue(region[2],'px'),UnitValue(region[3],'px')]);
       if(scale<1) preview.resizeImage(UnitValue(Math.round(rw*scale),'px'),UnitValue(Math.round(rh*scale),'px'),null,ResampleMethod.BICUBIC);
@@ -222,11 +225,15 @@ export function createLocalMaskTools(connection: PhotoshopConnection): ToolDefin
       tool: {
         name: 'photoshop_get_detail_preview',
         description:
-          'Read-only JPEG preview of a composite or raw pixel layer mask, optionally cropped to original document coordinates [left,top,right,bottom]. Region defaults to native pixels (1:1); rejects oversize native crops instead of silently resizing. Returns offset region, scale and dimensions. Full previews default to max 1024px, native crops max 2048px. Mask preview shows raw values without applying mask density/feather. Creates and closes only a temporary preview document, never crops or saves the source.',
+          'Read-only JPEG preview of a composite, raw RGB raster layer or pixel layer mask, optionally cropped to original document coordinates [left,top,right,bottom]. Region defaults to native pixels (1:1); rejects oversize native crops instead of silently resizing. Returns offset region, scale and dimensions. Full previews default to max 1024px, native crops max 2048px. Mask preview shows raw values without applying mask density/feather. Creates and closes only a temporary preview document, never crops or saves the source.',
         inputSchema: {
           type: 'object',
           properties: {
-            source: { type: 'string', enum: ['composite', 'layer_mask'], default: 'composite' },
+            source: {
+              type: 'string',
+              enum: ['composite', 'layer_mask', 'raster_layer'],
+              default: 'composite',
+            },
             layer_name: named,
             region: {
               type: 'array',

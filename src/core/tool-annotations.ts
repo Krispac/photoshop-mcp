@@ -76,6 +76,7 @@ export const TOOL_ANNOTATIONS: Record<string, PhotoshopToolAnnotations> = {
   photoshop_flatten_image: harm(false),
 
   photoshop_apply_gaussian_blur: harm(false),
+  photoshop_run_mask_workflow: edit(false),
   photoshop_prepare_full_frame_smart_layer: edit(false),
   photoshop_get_smart_filters: read,
   photoshop_add_gaussian_smart_filter: edit(false),

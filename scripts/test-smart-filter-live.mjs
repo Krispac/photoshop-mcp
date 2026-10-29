@@ -89,9 +89,14 @@ try {
   await call('photoshop_open_image', { filePath: input });
   id = parse(await call('photoshop_get_state')).document.id;
   assert.match(parse(await call('photoshop_get_state')).document.bitsPerChannel, /SIXTEEN/);
-  const baseName=parse(await call('photoshop_get_state')).activeLayer.name;
-  await call('photoshop_prepare_full_frame_smart_layer',{document_id:id,source_layer_name:baseName,new_layer_name:'Smart fixture'});
-  await call('photoshop_select_layer_by_name',{document_id:id,name:'Smart fixture'});
+  const baseName = parse(await call('photoshop_get_state')).activeLayer.name;
+  await preview('raster_layer', 'raw-source16', baseName);
+  await call('photoshop_prepare_full_frame_smart_layer', {
+    document_id: id,
+    source_layer_name: baseName,
+    new_layer_name: 'Smart fixture',
+  });
+  await call('photoshop_select_layer_by_name', { document_id: id, name: 'Smart fixture' });
   let r = parse(await call('photoshop_get_smart_filters', filterArgs()));
   assert.equal(r.details.filter_count, 0);
   await rejected('photoshop_apply_gaussian_blur', { document_id: id, radius: 3 });

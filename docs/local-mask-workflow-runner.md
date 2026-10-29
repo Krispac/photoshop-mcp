@@ -1,0 +1,29 @@
+# Code-owned mask workflow
+
+A bounded implementation of [code execution with MCP](https://www.anthropic.com/research/code-execution-with-mcp). The model interprets a problem and chooses/inspects a plan. Fixed code performs mechanics; it does not return to a model after every selection, layer activation, refinement or fill. No new service, general-purpose script endpoint, sandbox or model orchestrator is installed.
+
+## Two entry points
+
+`photoshop_run_mask_workflow` accepts an explicit positive `document_id`, `operation_id`, exact unique target `layer_name`, optional untouched `source_layer_name`, 0..12 patches and 1..2 `preview_regions`. A patch has document-pixel `points`, `value` 0..255, optional `opacity`, polygon `feather`, `refine` (default true), and `refine_settings` (radius, smooth, feather, contrast, shift_edge, smart_radius). Radius is integer. Unsupported options are rejected. Refinement requires an explicit visible unmasked normal raster source, not an already blurred effect. All apply targets must be visible/unlocked; an initial active selection is rejected. An empty patch list is read-only inspection.
+
+All coordinates use ORIGINAL DOCUMENT pixels; preview region offsets are not automatically added to polygon points. A patch whose bounding rectangle misses all preview regions is rejected as a probable coordinate mistake. Every patch/preview is validated before Photoshop mutates anything; canvas bounds are checked again in the native script. This guards mistakes, not artistic quality. Partial visual overlap alone is not proof of a good contour.
+
+The server runs polygon → optional native refinement on the source → existing mask fill, in one Photoshop script and one history step. It then produces paired composite/mask crops at native resolution; with a source name it also includes an isolated source-layer crop. The existing preview tool now accepts `source: raster_layer` for RGB raster layers, copied read-only into a temporary document. No Python PSD extraction or source-layer visibility changes are needed. Results are ordered by `preview_order` (region, then source/composite/mask).
+
+No pixels of the photo are painted, no layers are created/deleted, no file is saved and no mask is permanently applied. Known apply failures attempt rollback to the initial history state and report whether that succeeded. A transport timeout is UNKNOWN, not proof of rollback. Preview failure after apply is separately reported. Never blindly repeat an uncertain mutation.
+
+`node scripts/run-mask-workflow.mjs /absolute/job.json` is the durable local executor for the same arguments. It owns one MCP session, writes an exclusive private receipt before submitting, saves compact status and small JPEGs beside the job in `.mcp-mask-runs/`, and prints only the receipt/paths. Intermediate tool results and images need not pass through model text. On restart, the same ID/plan returns the disk receipt instead of reapplying; a changed plan with the same ID is rejected. Submitted/unknown receipts require inspection and a new explicit operation ID, not an automatic retry. Do not delete receipts until closing a job. There is no claim of global exactly-once semantics after receipts are deleted.
+
+The server also keeps up to 256 lightweight in-process receipts and blocks concurrent calls to this workflow. This is not a lock against other Photoshop tools or another independent server: one operator remains mandatory. Replaying an in-process ID returns the receipt without fresh images. Use a new inspect-only ID to obtain current previews. Set a client timeout of at least 180 seconds; the apply script has a 120-second timeout. If `context_restored:false`, inspect current state without repeating the fill.
+
+## Executor use
+
+Read the current-photo summary only, inspect source/result/mask in one batch, then form one reviewed numeric plan. Reuse known code and the CLI; do not rewrite a client per feedback. Run the plan once, inspect returned JPEGs together, and return to reasoning only for an actual new judgment. Keep full-frame source data, editable Smart Filters and external masks. Save the same canonical PSD only after visual review. A model such as Jev can choose a closed workflow branch when interpretation is needed; it does not calculate a pixel-accurate alpha mask or replace source/result inspection. Do not call Jev for deterministic type/bounds/history guards or an already known branch.
+
+## Evidence, limits, rollback
+
+`node scripts/test-mask-workflow-live.mjs` runs the same synthetic source, three patches and six previews using primitives and this workflow. Independent decoded-pixel comparisons must confirm equal source/result/mask exports. It tests one undo for the batch and durable CLI replay across separate server processes, including a non-100% opacity patch that would change on duplicate application. Unit tests exercise full-batch validation, rollback after an injected second-step native failure, in-flight locking, cached unknown state and preview failure after apply.
+
+The local code-only benchmark initially used 15 MCP calls versus one workflow call: 5670 versus 4675 ms, with 106714 versus 101895 serialized response bytes. Selected tool definitions were 7562 versus 1814 bytes. Both sides already executed without model waits; these figures do NOT prove equivalent end-to-end token/cost savings. Images still have to be reviewed. Re-run rather than treating these small timings as stable performance guarantees. Article percentages are other authors' examples, not our benchmark.
+
+Run unit tests, lint, build:server, prompt coverage, pack verification and the live fixture. After reviewed merge, rebuild the installed source and use a fresh MCP session. Roll back by reverting the package merge and rebuilding; PSD masks remain native data. Keep current photos open. This implementation is not a generic atomic transaction system or an automatic segmentation-quality judge.
