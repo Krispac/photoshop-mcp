@@ -6,6 +6,29 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export async function invokeReadyMaskWorkflow(client, args) {
+  const probe = await client.callTool({ name: 'photoshop_ping', arguments: {} });
+  if (probe.isError)
+    return {
+      isError: true,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            ok: false,
+            code: 'readiness_failed',
+            status: 'readiness_failed',
+            mask_changed: false,
+            completed: 0,
+            message: 'Photoshop readiness probe failed; no mask workflow was submitted',
+          }),
+        },
+      ],
+    };
+  return client.callTool({ name: 'photoshop_run_mask_workflow', arguments: args }, undefined, {
+    timeout: 180000,
+  });
+}
 async function execute(args) {
   const client = new Client({ name: 'mask-workflow-runner', version: '1' });
   try {
@@ -18,12 +41,7 @@ async function execute(args) {
         stderr: 'pipe',
       })
     );
-    await client.callTool({ name: 'photoshop_ping', arguments: {} });
-    return await client.callTool(
-      { name: 'photoshop_run_mask_workflow', arguments: args },
-      undefined,
-      { timeout: 180000 }
-    );
+    return await invokeReadyMaskWorkflow(client, args);
   } finally {
     await client.close();
   }

@@ -3,7 +3,7 @@ import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 // The CLI uses the same compiled builder exercised by the live workflow fixture.
-import { runMaskJob } from '../scripts/run-mask-workflow.mjs';
+import { runMaskJob, invokeReadyMaskWorkflow } from '../scripts/run-mask-workflow.mjs';
 import { normalizeMaskPlan } from '../src/tools/mask-workflow-tools.js';
 const args = {
   document_id: 1,
@@ -43,4 +43,22 @@ it('keeps durable receipts and does not resubmit a completed or unknown operatio
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+it('does not submit a mutation after a failed readiness probe', async () => {
+  let calls = 0;
+  const response = await invokeReadyMaskWorkflow(
+    {
+      callTool: async (request) => {
+        calls++;
+        expect(request.name).toBe('photoshop_ping');
+        return { isError: true, content: [{ type: 'text', text: 'scratch_disk_full' }] };
+      },
+    },
+    args
+  );
+  expect(calls).toBe(1);
+  const receipt = JSON.parse(response.content[0].text);
+  expect(receipt.status).toBe('readiness_failed');
+  expect(receipt.mask_changed).toBe(false);
 });

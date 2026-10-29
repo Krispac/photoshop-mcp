@@ -43,7 +43,15 @@ const base = {
   ],
   preview_regions: [[0, 0, 20, 20]],
 };
-const tool = () => createMaskWorkflowTools({} as never)[0].handler;
+import { wrapToolHandler } from '../src/errors/envelope.js';
+import { withOptionalDocumentId } from '../src/core/document-target.js';
+const tool = () =>
+  wrapToolHandler('photoshop_run_mask_workflow', createMaskWorkflowTools({} as never)[0].handler);
+it('advertises the positive document requirement without optional-target injection', () => {
+  const registered = withOptionalDocumentId(createMaskWorkflowTools({} as never)[0].tool);
+  expect(registered.inputSchema.properties.document_id).toEqual({ type: 'integer', minimum: 1 });
+  expect(registered.inputSchema.required).toContain('document_id');
+});
 const result = (r: Awaited<ReturnType<ReturnType<typeof tool>>>) =>
   JSON.parse(r.content.find((x) => x.type === 'text')!.text);
 
@@ -133,6 +141,7 @@ it('caches a transport failure as apply_unknown and never retries it', async () 
   const first = result(await handler(base));
   const replay = result(await handler(base));
   expect(first.status).toBe('apply_unknown');
+  expect(first.code).toBe('apply_unknown');
   expect(first.do_not_retry).toBe(true);
   expect(replay.replayed).toBe(true);
   expect(mocks.runSnippet).toHaveBeenCalledTimes(1);
@@ -144,6 +153,9 @@ it('retains an applied receipt after preview failure and does not reapply on rep
   const first = result(await handler(base));
   const replay = result(await handler(base));
   expect(first.status).toBe('applied_preview_failed');
+  expect(first.code).toBe('applied_preview_failed');
+  expect(first.mask_changed).toBe(true);
+  expect(first.completed).toBe(1);
   expect(first.do_not_retry).toBe(true);
   expect(replay.replayed).toBe(true);
   expect(mocks.runSnippet).toHaveBeenCalledTimes(1);

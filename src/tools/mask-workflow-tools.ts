@@ -174,7 +174,14 @@ export function createMaskWorkflowTools(connection: PhotoshopConnection): ToolDe
   const receipts = new Map<string, { hash: string; receipt: Record<string, unknown> }>();
   let busy = false;
   const text = (r: Record<string, unknown>, error = false): ToolResult => ({
-    content: [{ type: 'text', text: JSON.stringify(r) }],
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify(
+          error ? { ...r, code: r.code ?? r.status ?? 'mask_workflow_failed' } : r
+        ),
+      },
+    ],
     ...(error ? { isError: true } : {}),
   });
   return [
@@ -186,6 +193,7 @@ export function createMaskWorkflowTools(connection: PhotoshopConnection): ToolDe
         inputSchema: {
           type: 'object',
           properties: {
+            document_id: { type: 'integer', minimum: 1 },
             operation_id: { type: 'string', pattern: '^[a-zA-Z0-9_.-]{1,80}$' },
             layer_name: { type: 'string' },
             source_layer_name: { type: 'string' },
@@ -217,7 +225,7 @@ export function createMaskWorkflowTools(connection: PhotoshopConnection): ToolDe
               },
             },
           },
-          required: ['operation_id', 'layer_name', 'patches', 'preview_regions'],
+          required: ['document_id', 'operation_id', 'layer_name', 'patches', 'preview_regions'],
         },
       },
       handler: async (args) => {
