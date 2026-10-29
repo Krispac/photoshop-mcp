@@ -181,4 +181,4 @@ Anonymous, aggregated usage analytics are collected by default and can be
 disabled anytime — details in [`docs/anonymous-usage-analytics.md`](docs/anonymous-usage-analytics.md).
 # Local extension
 
-This checkout includes `photoshop_select_polygon` and `photoshop_refine_selection_edges` (130 tools total). See [polygon usage](docs/local-polygon-selection.md) and [edge refinement, validation and rollback](docs/local-refine-selection.md). Upstream count tables elsewhere describe the unmodified release.
+This checkout includes polygon selection, edge refinement, existing-mask correction, selection reload and 1:1 image/mask previews (133 tools total). See [polygon usage](docs/local-polygon-selection.md), [edge refinement](docs/local-refine-selection.md) and [the local correction loop, validation and rollback](docs/local-mask-workflow.md). Upstream count tables elsewhere describe the unmodified release.
