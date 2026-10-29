@@ -2085,12 +2085,8 @@ export const ExtendScriptSnippets = {
       throw new Error('No active document');
     }
     var layer = app.activeDocument.activeLayer;
-    var wasRasterized = false;
-    
-    // Auto-rasterize if needed
     if (layer.kind === LayerKind.TEXT || layer.kind === LayerKind.SMARTOBJECT) {
-      layer.rasterize(RasterizeType.ENTIRELAYER);
-      wasRasterized = true;
+      throw new Error('Refusing to rasterize text or Smart Object; use a Smart Filter tool for Smart Objects');
     }
     
     if (layer.kind !== LayerKind.NORMAL) {
@@ -2103,7 +2099,6 @@ export const ExtendScriptSnippets = {
       applied: true,
       filter: 'Gaussian Blur',
       radius: ${radius},
-      wasRasterized: wasRasterized,
       context: getContextInfo()
     };
     return result;

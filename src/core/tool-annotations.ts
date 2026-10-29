@@ -15,7 +15,7 @@ function ann(
   readOnlyHint: boolean,
   destructiveHint: boolean,
   idempotentHint: boolean,
-  openWorldHint = false,
+  openWorldHint = false
 ): PhotoshopToolAnnotations {
   return { readOnlyHint, destructiveHint, idempotentHint, openWorldHint };
 }
@@ -76,6 +76,11 @@ export const TOOL_ANNOTATIONS: Record<string, PhotoshopToolAnnotations> = {
   photoshop_flatten_image: harm(false),
 
   photoshop_apply_gaussian_blur: harm(false),
+  photoshop_prepare_full_frame_smart_layer: edit(false),
+  photoshop_get_smart_filters: read,
+  photoshop_add_gaussian_smart_filter: edit(false),
+  photoshop_set_gaussian_smart_filter: edit(false),
+  photoshop_get_layer_integrity: read,
   photoshop_apply_sharpen: harm(false),
   photoshop_apply_noise: harm(false),
   photoshop_apply_motion_blur: harm(false),

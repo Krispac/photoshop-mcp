@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import { runInNewContext } from 'node:vm';
 import { ExtendScriptSnippets } from '../src/api/extendscript.js';
 import {
+  maskHelpers,
   detailPreviewScript,
   fillMaskScript,
   loadSelectionScript,
@@ -251,4 +252,25 @@ it('missing pixel masks fail before destructive actions', () => {
     ).toThrow(/no pixel mask/);
   }
   expect(actions).toBe(0);
+});
+
+it('reports component-channel fallback when Photoshop cannot expose the active mask channels', () => {
+  const rgb = { kind: 'component' },
+    alpha = { kind: 'alpha' };
+  const result = runInNewContext(`(function(){${maskHelpers}return captureChannels();})()`, {
+    app: {
+      documents: [1],
+      activeDocument: {
+        channels: [rgb, alpha],
+        get activeChannels() {
+          throw Error('Get unavailable');
+        },
+      },
+    },
+    charIDToTypeID: (x: string) => x,
+    stringIDToTypeID: (x: string) => x,
+    ChannelType: { COMPONENT: 'component' },
+  });
+  expect(result.exact).toBe(false);
+  expect(result.channels).toEqual([rgb]);
 });
