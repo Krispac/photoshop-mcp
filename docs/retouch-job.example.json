@@ -1,0 +1,10 @@
+{
+  "operation_id": "retouch-prepare-001",
+  "action": "prepare",
+  "document_id": 123456,
+  "source_layer_name": "RAW development",
+  "expected": { "width": 6000, "height": 4000, "layer_names": ["RAW development"] },
+  "effect": { "layer_name": "Background blur", "radius_px": 3 },
+  "lights": [{ "name": "Face lift", "exposure": 0.15, "opacity": 100, "blend_mode": "LUMINOSITY" }],
+  "grain": { "name": "Film grain", "amount": 2.5, "opacity": 18 }
+}

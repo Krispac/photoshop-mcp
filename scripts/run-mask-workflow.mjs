@@ -58,8 +58,14 @@ export async function runMaskJob(jobPath, invoke = execute, normalizeOverride) {
     patches: p.patches.map(({ settings, ...patch }) => ({ ...patch, refine_settings: settings })),
     preview_regions: p.regions,
   };
+  return runDurableOperation(jobPath, args, invoke);
+}
+
+// Shared local receipt runner; callers supply a fixed, validated operation, never arbitrary tools.
+export async function runDurableOperation(jobPath, args, invoke, receiptFolder = '.mcp-mask-runs') {
+  const p = args;
   const hash = createHash('sha256').update(JSON.stringify(args)).digest('hex'),
-    dir = join(dirname(resolve(jobPath)), '.mcp-mask-runs'),
+    dir = join(dirname(resolve(jobPath)), receiptFolder),
     path = join(dir, p.operation_id + '.json');
   await mkdir(dir, { recursive: true, mode: 0o700 });
   if ((await lstat(dir)).isSymbolicLink()) throw Error('Receipt directory cannot be a symlink');

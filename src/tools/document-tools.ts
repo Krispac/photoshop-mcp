@@ -32,7 +32,8 @@ export function createDocumentTools(connection: PhotoshopConnection): ToolDefini
             },
             height: {
               type: 'number',
-              description: 'Document height in pixels. Default 1080 when the request names no size.',
+              description:
+                'Document height in pixels. Default 1080 when the request names no size.',
               minimum: 1,
               default: 1080,
             },
@@ -129,6 +130,12 @@ export function createDocumentTools(connection: PhotoshopConnection): ToolDefini
         inputSchema: {
           type: 'object',
           properties: {
+            as_copy: {
+              type: 'boolean',
+              default: true,
+              description:
+                'PSD only: false saves the canonical working document and updates its path/saved state. Default true preserves export-copy behavior.',
+            },
             path: {
               type: 'string',
               description: 'Full path where to save the document',
@@ -250,7 +257,9 @@ async function listDocuments(connection: PhotoshopConnection): Promise<ToolResul
     const raw = await runSnippet(connection, ExtendScriptSnippets.listDocuments());
     const parsed = parseSnippetResult(raw);
     if (!parsed) {
-      return atomicFailureFromError(new Error(`Snippet returned unparseable payload: ${String(raw)}`));
+      return atomicFailureFromError(
+        new Error(`Snippet returned unparseable payload: ${String(raw)}`)
+      );
     }
 
     if (parsed.ok === false) {
@@ -318,7 +327,9 @@ async function setActiveDocument(
     const raw = await runSnippet(connection, ExtendScriptSnippets.setActiveDocument(params));
     const parsed = parseSnippetResult(raw);
     if (!parsed) {
-      return atomicFailureFromError(new Error(`Snippet returned unparseable payload: ${String(raw)}`));
+      return atomicFailureFromError(
+        new Error(`Snippet returned unparseable payload: ${String(raw)}`)
+      );
     }
 
     if (parsed.ok === false) {
@@ -347,9 +358,7 @@ async function setActiveDocument(
     }
 
     return atomicSuccess(
-      activated?.name
-        ? `Active document set to "${activated.name}"`
-        : 'Active document switched',
+      activated?.name ? `Active document set to "${activated.name}"` : 'Active document switched',
       details,
       'photoshop_get_document_info'
     );
@@ -399,6 +408,10 @@ async function saveDocument(
     const apiFactory = new PhotoshopAPIFactory(connection);
     const api = await apiFactory.createAPI();
 
+    if (args.as_copy !== undefined && typeof args.as_copy !== 'boolean')
+      throw new Error('as_copy must be boolean');
+    if (args.as_copy === false && format.toUpperCase() !== 'PSD')
+      throw new Error('as_copy:false is supported only for PSD');
     let script;
     switch (format.toUpperCase()) {
       case 'JPEG':
@@ -408,7 +421,7 @@ async function saveDocument(
         script = ExtendScriptSnippets.saveAsPNG(path);
         break;
       default:
-        script = ExtendScriptSnippets.saveAsPSD(path);
+        script = ExtendScriptSnippets.saveAsPSD(path, args.as_copy !== false);
     }
     await api.executeScript(script);
 
