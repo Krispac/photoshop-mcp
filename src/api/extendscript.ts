@@ -1021,6 +1021,28 @@ export type GradientMaskDirection =
   | 'left_to_right'
   | 'right_to_left';
 
+// Delete/apply the pixel mask explicitly, regardless of the active RGB/alpha channel.
+function removePixelMaskScript(apply: boolean): string {
+  return `${helperFunctions}
+    if (!app.documents.length) throw new Error('No active document');
+    var layer = app.activeDocument.activeLayer;
+    function hasMask() {
+      var r = new ActionReference(); r.putIdentifier(cTID('Lyr '), layer.id);
+      var d = executeActionGet(r);
+      return d.hasKey(sTID('hasUserMask')) && d.getBoolean(sTID('hasUserMask'));
+    }
+    if (!hasMask()) throw new Error('Layer has no pixel mask');
+    var desc = new ActionDescriptor(), ref = new ActionReference();
+    ref.putEnumerated(cTID('Chnl'), cTID('Chnl'), cTID('Msk '));
+    ref.putIdentifier(cTID('Lyr '), layer.id);
+    desc.putReference(cTID('null'), ref);
+    desc.putBoolean(sTID('apply'), ${apply});
+    executeAction(cTID('Dlt '), desc, DialogModes.NO);
+    if (hasMask()) throw new Error('Photoshop did not remove the pixel mask');
+    return { ${apply ? 'maskApplied' : 'maskDeleted'}: true };
+  `;
+}
+
 /**
  * Common ExtendScript snippets
  */
@@ -3129,28 +3151,7 @@ export const ExtendScriptSnippets = {
   /**
    * Delete layer mask
    */
-  deleteLayerMask: () => `
-    ${helperFunctions}
-
-    if (app.documents.length === 0) {
-      throw new Error('No active document');
-    }
-
-    var layer = app.activeDocument.activeLayer;
-    if (!layer.hasLayerMask) {
-      return { maskDeleted: false, message: 'Layer has no mask' };
-    }
-
-    var desc = new ActionDescriptor();
-    var ref = new ActionReference();
-    ref.putEnumerated(cTID('Chnl'), cTID('Chnl'), cTID('Msk '));
-    desc.putReference(cTID('null'), ref);
-    executeAction(cTID('Dlt '), desc, DialogModes.NO);
-
-    return {
-      maskDeleted: true
-    };
-  `,
+  deleteLayerMask: () => removePixelMaskScript(false),
 
   /**
    * Create a clipping mask on the active or named layer (groupEvent AM).
@@ -3273,32 +3274,7 @@ export const ExtendScriptSnippets = {
   /**
    * Apply layer mask
    */
-  applyLayerMask: () => `
-    ${helperFunctions}
-
-    if (app.documents.length === 0) {
-      throw new Error('No active document');
-    }
-
-    var desc = new ActionDescriptor();
-    var ref = new ActionReference();
-    ref.putEnumerated(sTID('channel'), sTID('ordinal'), sTID('targetEnum'));
-    desc.putReference(sTID('null'), ref);
-    desc.putBoolean(sTID('apply'), true);
-    try {
-      executeAction(sTID('delete'), desc, DialogModes.NO);
-    } catch (eDeleteApply) {
-      var legacy = new ActionDescriptor();
-      var legacyRef = new ActionReference();
-      legacyRef.putEnumerated(cTID('Chnl'), cTID('Chnl'), cTID('Msk '));
-      legacy.putReference(cTID('null'), legacyRef);
-      executeAction(cTID('Aply'), legacy, DialogModes.NO);
-    }
-
-    return {
-      maskApplied: true
-    };
-  `,
+  applyLayerMask: () => removePixelMaskScript(true),
 
   /**
    * Play an action from Actions palette
