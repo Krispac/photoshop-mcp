@@ -36,6 +36,7 @@ import { createAdjustmentTools } from '../tools/adjustment-tools.js';
 import { createTextTools } from '../tools/text-tools.js';
 import { createSelectionTools } from '../tools/selection-tools.js';
 import { createPolygonSelectionTools } from '../tools/polygon-selection-tools.js';
+import { createRefineSelectionTools } from '../tools/refine-selection-tools.js';
 import { createMaskTools } from '../tools/mask-tools.js';
 import { createActionTools } from '../tools/action-tools.js';
 import { createHistoryTools } from '../tools/history-tools.js';
@@ -132,6 +133,7 @@ export class PhotoshopMCPServer {
     this.registerToolDefinitions(createTextTools(connection));
     this.registerToolDefinitions(createSelectionTools(connection));
     this.registerToolDefinitions(createPolygonSelectionTools(connection));
+    this.registerToolDefinitions(createRefineSelectionTools(connection));
     this.registerToolDefinitions(createMaskTools(connection));
     this.registerToolDefinitions(createActionTools(connection));
     this.registerToolDefinitions(createHistoryTools(connection));

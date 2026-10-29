@@ -102,6 +102,7 @@ export const TOOL_ANNOTATIONS: Record<string, PhotoshopToolAnnotations> = {
   photoshop_get_selection_bounds: read,
   photoshop_select_ellipse: edit(false),
   photoshop_select_polygon: edit(false),
+  photoshop_refine_selection_edges: edit(false),
   photoshop_expand_selection: edit(false),
   photoshop_contract_selection: edit(false),
   photoshop_feather_selection: edit(false),
